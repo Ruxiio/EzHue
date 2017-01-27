@@ -1,0 +1,392 @@
+<html>
+<!DOCTYPE html>
+<head>
+	<!-- Link CSS Files -->
+
+	<!-- Google Icons -->
+	<link rel="stylesheet" href="http://fonts.googleapis.com/icon?family=Material+Icons">
+	<!-- Flickity -->
+	<link rel="stylesheet" href="css/flickity.css">
+	<!-- Materialize -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css">
+	<!-- Font Awesome -->
+	<link rel="stylesheet" href="css/font-awesome.css">
+	<!-- NoUiSlider -->
+	<link rel="stylesheet" type="text/css" href="css/nouislider.min.css">
+	<!-- Page Layout -->
+	<link rel="stylesheet" type="text/css" href="css/pagelayout.css">
+	<!-- End CSS Link -->
+
+	<!-- Enable Responsive Viewport -->
+	<meta content="width=device-width, inital-scale=1.0" name="viewport"/>
+	
+	<!-- Page Title -->
+	<title>EZ Hue - Controller</title>
+
+</head>
+
+<body class="grey lighten-2">
+
+
+<!-- Start data from nav template -->
+<!-- Header Wrapper -->
+<header>
+
+	<!-- Banner Image -->
+	<div style="position: relative;">
+		<img class="responsive-img" style="display:block;" src="images/banner.jpg" />
+		<!-- Banner Text -->
+		<h1 class="white-text light hide-on-med-and-down" style="position: absolute; bottom: 5%;right : 80%">EZ Hue</h1>
+	</div>
+	
+	<!-- Mobile Nav Content -->
+	<ul class="side-nav" id="slide-out">
+    	<li>
+    		<!-- Mobile Nav User Info -->
+    		<div class="userView">
+      			<div class="background"><img style="max-width: 300px;" src="images/user-view-bg.png"></div>
+      			<a href="#!user"><img class="circle" id="mobile-user-img" src="images/generic-img.png"></a>
+      			<!-- Hide this when user is logged in -->
+      			<div style="margin-top:50px" class="">
+      				<a href="#"><button class="btn light-blue darken-1 waves-effect waves-purple">Sign In / Sign Up</button></a>
+      				<br />
+      			</div>
+      			<!-- Fill out and show these when the user is logged in -->
+      			<a href="#!name" class="hide"><span class="white-text name" id="mobile-user-name">Ruxiio</span></a>
+      			<a href="#!email" class="hide"><span class="white-text email" id="mobile-user-level">Level 1</span></a>
+      		</div>
+      	</li>
+      	<!-- Mobile Nav Dropdowns -->
+      	<h5 class="bold grey-text text-darken-2 center-align">EZHue Menu</h5>
+      	<li class="divider"></li>
+      	<!-- Mobile Nav Option Wrapper -->
+		<li class="no-padding">
+			<ul class="collapsible collapsible-accordian">
+				<li>
+					<!-- Dashboard -->
+					<a class="collapsible-header center-align">Dashboard</a>
+					<ul class="collapsible-body">
+						<li><a href="#" class="center-align blue-text">Bridge Settings</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">Light Control Center</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">Twitch Hub</a></li>
+						<li class="divider"></li>
+						<li class="grey lighten-1"><a href="#" class="center-align blue-text tooltipped" data-position="right" data-delay="20" data-tooltip="Coming Soon!">Music</a></li>
+					</ul>
+				</li>
+				<li>
+					<!-- Community -->
+					<a class="collapsible-header center-align">Community</a>
+					<ul class="collapsible-body">
+						<li><a href="#" class="center-align blue-text">Setup Guides</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">General Fourms</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">Preset Library</a></li>
+						<li class="divider"></li>
+					</ul>
+				</li>
+				<li>
+					<!-- Support -->
+					<a class="collapsible-header center-align">Support</a>
+					<ul class="collapsible-body">
+						<li><a href="#" class="center-align blue-text">FAQ</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">Support Fourms</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">Submit A Ticket</a></li>
+						<li class="divider"></li>
+						<li><a href="#" class="center-align blue-text">Share An Idea</a></li>
+					</ul>
+				</li>
+			</ul>
+		</li>
+	</ul>
+
+	<!-- Dashboard Dropdown Content -->
+	<ul class="dropdown-content" id="dash-dropdown-content">
+		<li><a href="#" class="center-align blue-text">Bridge Settings</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">Light Control Center</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">Twitch Hub</a></li>
+		<li class="divider"></li>
+		<li class="grey lighten-1"><a href="#" class="center-align grey-text text-darken-3 tooltipped" data-position="left" data-delay="20" data-tooltip="Coming Soon!">Music</a></li>
+	</ul>
+
+	<!-- Community Hub Dropdown Content -->
+	<ul class="dropdown-content" id="community-dropdown-content">
+		<li><a href="#" class="center-align blue-text">Setup Guides</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">General Fourms</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">Preset Library</a></li>
+		<li class="divider"></li>
+	</ul>
+
+	<!-- Support Hub Dropdown Content -->
+	<ul class="dropdown-content" id="support-dropdown-content">
+		<li><a href="#" class="center-align blue-text">FAQ</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">Support Fourms</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">Submit A Ticket</a></li>
+		<li class="divider"></li>
+		<li><a href="#" class="center-align blue-text">Share An Idea</a></li>
+	</ul>
+
+	<!-- Nav Wrapper -->
+	<nav class="light-blue darken-1">
+    	<div class="nav-wrapper">
+    		<!-- Nav Logo-->
+    		<a href="#" class="brand-logo hide-on-large-only">EZ Hue</a>
+    		<!-- Desktop Nav Bar -->
+    		<ul id="nav-desktop" class="right hide-on-med-and-down">
+       			<li><a href="#" class="dropdown-button" data-activates="dash-dropdown-content" data-beloworigin="true" data-constrainwidth="false" data-gutter="-26" data-hover="true"><i class="fa fa-tachometer"></i>&nbsp Dashboard</a></li>
+       			<li><a href="#" class="dropdown-button" data-activates="community-dropdown-content" data-hover="true" data-beloworigin="true" data-constrainwidth="false" data-gutter="-7"><i class="fa fa-users"></i>&nbsp Community</a></li>
+       			<li><a href="#" class="dropdown-button" data-activates="support-dropdown-content" data-hover="true" data-beloworigin="true" data-constrainwidth="false" data-gutter="-6"><i class="fa fa-comments-o"></i>&nbsp Support Hub</a></li>
+       			<li id="nav-username"><a href=""><i class="fa fa-sign-in"></i>&nbsp Sign in</a></li>
+       			<li id="user-img" class="hide"><a href=""><img class="circle user-img center-align" src="images/generic-img.png"></a></li>
+    		</ul>
+    		<!-- Mobile Nav Button -->
+    		<a href="#" class="button-collapse hide-on-large-only" id="nav-mobile" data-activates="slide-out">Menu</a>
+
+    	</div>
+  	</nav>
+</header>
+ <!-- End data from nav template -->
+<main>
+	<!-- Page Title Header -->
+	<div class="container white darken-3 z-depth-1">
+		
+		<div class="row white darken-3">
+			<h2 class="light blue-text center-align" style="padding-top:25px; padding-bottom: 15px;">
+			<i class="fa fa-sliders"></i> Light Controls <i class="fa fa-sliders"></i>
+			</h2>
+			<div class="divider"></div>
+			<br />
+			<!-- Info Column -->
+			<div class="col s4 center-align divider-vert-right">
+				<h4 class="blue-text">Bridge Info</h4>
+				<div class="divider"></div>
+				<h6 class="light">Bridge Name : <span id="bridge-name">123456789</span></h6>
+				<h6 class="light">Bridge IP : <span id="bridge-ip">192.168.0.X</span></h6>
+				<br />
+				<div id="rename-bridge-input"></div>
+				<div class="btn blue waves-effect waves-light" id="rename-bridge-button" onclick="renameBridge(this)">Rename Bridge</div>
+				<br />
+				<h4 class="blue-text">Light Info</h4>
+				<div class="divider"></div>
+				<div id="light-preloader">
+					<br />
+					<div class="preloader-wrapper big active">
+						<div class="spinner-layer spinner-blue-only">
+							<div class="circle-clipper left">
+								<div class="circle"></div>
+							</div>
+							<div class="gap-patch">
+								<div class="circle"></div>
+							</div>
+							<div class="circle-clipper right">
+								<div class="circle"></div>
+							</div>
+						</div>
+					</div>
+					<br />
+					<span class="flow-text blue-text">Loading Light Data</span>
+				</div>
+				<ul class="collapsible popout hide" id="light-info-list" data-collapsible="accordian">
+					<!-- Programmaticly add light info here -->
+				</ul>
+			</div>
+			<!-- Data Form Column -->
+			<div class="col s8">
+				<div class="container">
+					<div class="row">
+						<!-- Group Selection -->
+						<div class="col l6 s12 input-field">
+							<h6 class="light center-align">Group</h6>
+							<div class="divider"></div>
+							<select>
+								<option disabled selected value="null">Select A Group</option>
+								<option value="null">None</option>
+								<option>Group 1</option>
+								<option>Group 2</option>
+								<option>Group 3</option>
+							</select>
+						</div>
+						<!-- Light Selection -->
+						<div class="col l6 s12 input-field">
+							<h6 class="light center-align">Light</h6>
+							<div class="divider"></div>
+							<select multiple>
+								<option disabled selected value="null">Select A Light</option>
+								<option>Light 1</option>
+								<option>Light 2</option>
+								<option>Light 3</option>
+							</select>
+						</div>
+						<!-- On/Off -->
+						<div class="col s8 offset-s2 center-align">
+							<h6 class="light">Light State</h6>
+							<div class="divider"></div>
+							<br />
+							<div class="switch">
+    							<label>
+      								Off
+      								<input type="checkbox">
+      								<span class="lever"></span>
+      								On
+    							</label>
+ 							</div>
+ 							<br />
+						</div>
+						<!-- Color Type -->
+						<div class="col s8 offset-s2 center-align input-field">
+							<h6 class="light">Color Type</h6>
+							<div class="divider"></div>
+							<select id="color-type" onchange="updateColorType(this.value);">
+								<option value="null" disabled selected>Choose One</option>
+								<option value="hue">Hue / Saturation</option>
+								<option class="tooltipped" value="ct" disabled="true" data-tooltip="Coming Soon!" data-delay="20" data-position="right">Color Tempature</option>
+								<option class="tooltipped" value="xy" disabled="true" data-tooltip="Coming Soon!" data-delay="20" data-position="left">X / Y</option>
+							</select>	
+						</div>
+						<!-- Hue Inputs -->
+						<div id="hue-input-feild" class="hide">
+							<div class="col s12 center-align">
+								<!-- Hue Slider -->
+								<div class="col s6">
+									<h6 class="light">Hue : <span id="hue-value"></span></h6>
+									<div class="divider"></div>
+									<br />
+									<div id="hue-slider"><!-- Dynamically created slider will appear here --></div>
+									<br />
+								</div>
+								<!-- Saturation Slider -->
+								<div class="col s6">
+									<h6 class="light">Saturation : <span id="sat-value"></span></h6>
+									<div class="divider"></div>
+									<br />
+									<div id="sat-slider"><!-- Dynamically created slider will appear here --></div>
+								</div>
+							</div>
+							<!-- Brightness Slider -->
+							<div class="col s8 offset-s2 center-align">
+								<br />
+								<h6 class="light">Brightness : <span id="bri-value"></span></h6>
+								<div class="divider"></div>
+								<br />
+								<div id="bri-slider"><!-- Dynamically created slider will appear here --></div>
+								<br />
+							</div>
+						</div>
+						<!-- Color Temprature Inputs -->
+						<div id="ct-input-feild" class="hide">
+							<div class="col s8 offset-s2 center-align">
+								<h6 class="light">Color Temperature</h6>
+								<div class="divider"></div>
+								<br />
+								<div id="ct-slider"><!-- Dynamically created slider will appear here --></div>
+								<br />
+							</div>
+						</div>
+						<!-- XY Inputs -->
+						<div id="xy-input-feild" class="hide">
+							<div class="col s5 offset-s1 input-field">
+								<h6 class="light">X Value : <span id="x-slider-value"></span></h6>
+								<div class="divider"></div>
+								<br />
+								<div id="x-slider"><!-- Dynamically created slider will appear here --></div>
+								<br />
+							</div>
+							<div class="col s5 offset-s1 input-field">
+								<h6 class="light">Y Value : <span id="y-slider-value"></span></h6>
+								<div class="divider"></div>
+								<br />
+								<div id="y-slider"><!-- Dynamically created slider will appear here --></div>
+								<br />
+							</div>
+							<div class="col s8 offset-s2 center-align">
+								<br />
+								<h6 class="light">Brightness : <span id="bri-value-xy"></span></h6>
+								<div class="divider"></div>
+								<br />
+								<div id="bri-slider-xy"><!-- Dynamically created slider will appear here --></div>
+								<br />
+							</div>
+							<div class="col s8 offset-s2">
+								<div class="btn" id="xy-preview"></div>
+							</div>
+						</div>
+						<div class="col s12 center-align input-field">
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+</main>
+
+<!-- Start data from nav template -->
+<!-- Footer Wrapper -->
+<footer class="page-footer light-blue darken-1">
+    <div class="container">
+	    <div class="row light">
+
+	    	<!-- Social Media Links -->
+            <div class="col s12 center-align">
+               	<a class="footer-link grey-text text-lighten-3" href="#!"><i class="fa fa-facebook-square fa-lg"></i></a>
+                <a class="footer-link grey-text text-lighten-3" href="#!"><i class="fa fa-twitter-square fa-lg"></i></a>
+                <a class="footer-link grey-text text-lighten-3" href="#!"><i class="fa fa-youtube-play fa-lg"></i></a>
+                <a class="footer-link grey-text text-lighten-3" href="#!"><i class="fa fa-tumblr-square fa-lg"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copyright Wrapper -->
+    <div class="footer-copyright">
+        <div class="container">
+         	© 2017 Copyright Text
+            <a class="grey-text text-lighten-4 right" href="#!">More Links</a>
+        </div>
+    </div>
+</footer>
+<!-- End data from nav template -->
+
+</body>
+
+	<!-- Link JavaScript Files -->
+
+	<!-- jQuery -->
+	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+	
+	<!-- Flickity -->
+	<script type="text/javascript" src="js/flickity.js"></script>
+	
+	<!-- Materialize -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/js/materialize.min.js"></script>
+
+	<!-- wNumb -->
+	<script src="js/wNumb.js"></script>
+
+	<!-- NoUiSlider -->
+	<script src="js/nouislider.min.js"></script>
+
+	<!-- Materialize Component Inits -->
+	<script type="text/javascript">
+		$(document).ready(function() {
+    		$('select').material_select();
+    		$('.button-collapse').sideNav();
+			$('.collapsible').collapsible();
+  		});
+	</script>
+
+	<!-- Controller Form -->
+	<script src="js/controller.js"></script>
+
+	<!-- End JavaScript Link -->
+
+
+</html>
