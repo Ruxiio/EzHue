@@ -9,7 +9,7 @@ function EzHue(){
 	//Lights array
 	this.lights = [];
 	//Find and create bridge
-	this.createBridge = function(){
+	this.createBridge = function(cbAlert, cbFail, cbSuccess){
 		//Bridge frame
 		var bridgeFrame = {
 			ip:"",
@@ -94,8 +94,7 @@ function EzHue(){
 									isFirst = false;
 								}
 								else{
-									//Later use to change the page to show the request failed
-									//and wait for a button input to send another request
+									cbFail();
 								}
 								break;
 						}
@@ -117,6 +116,7 @@ function EzHue(){
 
 			//Post request function for multiple calls
 			function request(){
+				cbAlert();
 				//Prepares HTTP request
 				http.open('POST', url, true);
 				//Sends HTTP request
@@ -152,6 +152,7 @@ function EzHue(){
 				if(useLocal){
 					localstorage.bridge = scope.bridge;
 				}
+				cbSuccess(scope.bridge);
 			}
 		}
 	}
