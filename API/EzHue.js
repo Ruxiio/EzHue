@@ -166,6 +166,7 @@ function EzHue(){
 		this.name = frame.name;
 		this.url = frame.url;
 		this.lastScan;
+		this.config;
 		//Parent scope to manipulate lights to the EzHue object
 		var parent = scope;
 
@@ -333,7 +334,7 @@ function EzHue(){
 			http.send();
 		}
 
-		this.rename(n, cb, err){
+		this.rename = function(n, cb, err){
 			//Temp reference to bridge
 			var _s = this;
 			//Checks if the new name is a valid string
@@ -371,6 +372,65 @@ function EzHue(){
 			http.open("PUT", this.url + "/config", true);
 			//Sends HTTP request
 			http.send({"name":n});
+		}
+
+		this.getConfig = function(cb){
+			//Temp refrence to bridge
+			var _s = this;
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response variable
+					response = JSON.parse(http.responseText);
+					//Adds config data to bridge
+					_s.config = response;
+					//Fires callback with response data
+					cb(_s.config);
+				}
+				else if(http.readyState == 4){
+					//Handle errors
+				}
+			}
+
+			//Prepare HTTP request
+			http.open('GET', this.url + "/config", true);
+			//Send HTTP request
+			http.send();
+		}
+
+		this.deleteUser = function(username, cb){
+			//Temp reference to bridge
+			var _s = this;
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					//Assures request was a success
+					if("success" in response){
+						//Removes the username from local whitelist
+						delete _s.config.whitelist[username];
+						//Fires callback
+						cb();
+					}
+					else{
+						//Handle errors
+					}
+				}
+				else if(http.readyState == 4){
+					//Handle errors
+				}
+			}
+
+			for(var i = 0; i < this.config.whitelist.length; i++){
+				if(this.config.whitelist[i] == username){
+					//Prepare HTTP request
+					http.open('DELETE', this.url + "/config/whitelist/" + uesrname, true);
+					//Send HTTP request
+					http.send();
+					break;
+				}
+			}
 		}
 	}
 
