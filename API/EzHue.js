@@ -152,6 +152,7 @@ function EzHue(){
 				if(useLocal){
 					localstorage.bridge = scope.bridge;
 				}
+				//Fires the success function
 				cbSuccess(scope.bridge);
 			}
 		}
@@ -169,7 +170,7 @@ function EzHue(){
 		var parent = scope;
 
 		//Finds all lights connected to bridge
-		this.findLights = function(){
+		this.findLights = function(cb){
 			//Resets current lights
 			parent.lights = [];
 			http.onreadystatechange = function(){
@@ -180,8 +181,7 @@ function EzHue(){
 					var lightCount = Object.keys(response).length;
 					//Cycle through lights
 					var _index = 1;
-					for (var i = 0; i < lightCount; i++)
-					{
+					for (var i = 0; i < lightCount; i++){
 						//Prepare light
 						var curr = response[Object.keys(response)[i]];
 						//Create light object
@@ -190,6 +190,10 @@ function EzHue(){
 						parent.lights.push(tmp);
 						//Increment index tracker
 						_index++;
+						//If this is the final itteration fire the completion callback
+						if(i == lightCount - 1){
+							cb();
+						}
 					}
 				}
 				else if(http.readyState == 4){
