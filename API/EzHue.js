@@ -2,13 +2,14 @@ function EzHue(){
 	//http variables
 	var http = new XMLHttpRequest();
 	var response;
+	var useLocal = (typeof(Storage) !== "undefined");
 
 	//Bridge instance
 	this.bridge = {};
 	//Lights array
 	this.lights = [];
 	//Find and create bridge
-	this.createBridge = function(ip){
+	this.createBridge = function(cbAlert, cbFail, cbSuccess){
 		//Bridge frame
 		var bridgeFrame = {
 			ip:"",
@@ -16,14 +17,37 @@ function EzHue(){
 			username:"",
 			name:""
 		}
-		//Make sure IP was not provided
-		if(ip === "undefined" || ip == null){
-			findBridge(this);
+
+		if(useLocal){
+			//Make sure a bridge was not provided
+			if(localstorage.bridge === "undefined" || localstorage.bridge == null){
+				findBridge(this);
+			}
+			else{
+				//Temp refrence to scope for use in http function
+				var _s = this;
+				http.onreadystatechange = function(){
+					if(requestStatus(http)){
+						//If a successful request was sent the bridge is valid and can be used
+						if("success" in response){
+							this.bridge = localstorage.bridge;
+						}
+						else{
+							//Abandon localstorage and find new bridge
+							findBridge(_s);
+						}
+					}
+				}
+				//Prepares HTTP request
+				http.open('GET', localstorage.bridge.url, true);
+				//Sends HTTP request
+				http.send();
+			}
 		}
 		else{
-			//Ip was provided
-
+			findBridge(this);
 		}
+
 		//Find bridge with HUE nupnp
 		function findBridge(scope){
 			http.onreadystatechange = function(){
@@ -70,8 +94,7 @@ function EzHue(){
 									isFirst = false;
 								}
 								else{
-									//Later use to change the page to show the request failed
-									//and wait for a button input to send another request
+									cbFail();
 								}
 								break;
 						}
@@ -93,6 +116,7 @@ function EzHue(){
 
 			//Post request function for multiple calls
 			function request(){
+				cbAlert();
 				//Prepares HTTP request
 				http.open('POST', url, true);
 				//Sends HTTP request
@@ -122,7 +146,14 @@ function EzHue(){
 			}
 
 			function initBridge(scope){
+				//Create bridge as an object of EzHue
 				scope.bridge = new Bridge(bridgeFrame, scope);
+				//If local storage is supported, store bridge data for later use
+				if(useLocal){
+					localstorage.bridge = scope.bridge;
+				}
+				//Fires the success function
+				cbSuccess(scope.bridge);
 			}
 		}
 	}
@@ -135,12 +166,13 @@ function EzHue(){
 		this.name = frame.name;
 		this.url = frame.url;
 		this.lastScan;
-		this.newLights;
-		//Parent scope to add lights to the EzHue object
+		//Parent scope to manipulate lights to the EzHue object
 		var parent = scope;
 
 		//Finds all lights connected to bridge
-		this.findLights = function(){
+		this.findLights = function(cb){
+			//Resets current lights
+			parent.lights = [];
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){	
 					//Stores response object
@@ -149,8 +181,7 @@ function EzHue(){
 					var lightCount = Object.keys(response).length;
 					//Cycle through lights
 					var _index = 1;
-					for (var i = 0; i < lightCount; i++)
-					{
+					for (var i = 0; i < lightCount; i++){
 						//Prepare light
 						var curr = response[Object.keys(response)[i]];
 						//Create light object
@@ -159,6 +190,10 @@ function EzHue(){
 						parent.lights.push(tmp);
 						//Increment index tracker
 						_index++;
+						//If this is the final itteration fire the completion callback
+						if(i == lightCount - 1){
+							cb();
+						}
 					}
 				}
 				else if(http.readyState == 4){
@@ -172,6 +207,7 @@ function EzHue(){
 		}
 
 		//Finds and adds new lights that are not connected to the bridge
+		//Update and complete variables are callback functions
 		this.searchForLights = function(update, complete){
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
@@ -193,7 +229,7 @@ function EzHue(){
 
 			function monitorProgress(_bridge){
 				//Array representing the index of new lights
-				var _newLights = [];
+				var newLights = [];
 				//Should I update lastScan?
 				var firstResponse = true;
 				//Creates update interval (1 update per second)
@@ -219,12 +255,13 @@ function EzHue(){
 								//Loops through respose object (ignores lastscan)
 								for(var i = lastLen - 1; i < rLen - 1; i++){
 									//Adds new lights to placeholder
-									_newLights.push(Object.keys(response[i]));
+									newLights.push(Object.keys(response[i]));
 								}
 								//Sets to ignore lights that have already been added
 								lastLen = rLen;
 							}
-							update(_newLights);
+							//Fires status update callback
+							update(newLights);
 						}
 						else if(http.readyState == 4){
 							//Handle errors
@@ -238,22 +275,26 @@ function EzHue(){
 				//Timer to clear interval after light search is complete (40 sec)
 				window.setTimeout(function(){
 					set.clearInterval();
-					collectResults(_bridge, _newLights, lastScan);
+					collectResults(_bridge, newLights, lastScan);
 				}, 40000);
 			}
 
-			function collectResults(_bridge, _newLights, lastScan){
+			function collectResults(_bridge, newLights, lastScan){
 				var result;
 				http.onreadystatechange = function(){
 					if(requestStatus(http)){
 						//Stores response object
 						response = JSON.parse(http.responseText);
 
-						for(var i = response.length - _newLights.length; i < response.length; i++){
+						//Collects extended light data of the new lights
+						for(var i = response.length - newLights.length; i < response.length; i++){
 							result.push(response[i]);
 						}
-
+						//Fires callback to handle search completion
 						complete(result);
+						//Resets the current light set in the case of
+						//lights being removed
+						_bridge.findLights();
 					}
 					else if(http.readyState == 4){
 						//Handle errors
@@ -266,6 +307,71 @@ function EzHue(){
 				http.send();
 			}
 		}
+
+		//Deletes light from bridge
+		this.deleteLight = function(index, cb){
+			//Checks to see if light exists
+			if(parent.lights[index] === "undefined" || parent.lights[index] == null){
+				return;
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Refreshes the light list
+					this.findLights();
+					//Fires callback
+					cb();
+				}
+				else if(http.readyState == 4){
+					//Handle errors
+				}
+			}
+
+			//Prepares HTTP request
+			http.open("DELETE", this.url + "/lights/" + index, true);
+			//Sends HTTP request
+			http.send();
+		}
+
+		this.rename(n, cb, err){
+			//Temp reference to bridge
+			var _s = this;
+			//Checks if the new name is a valid string
+			if(typeof(n) !== "string"){
+				//Fires error callback and ends function
+				err("String must be provided as first variable");
+				return;
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					//Looks for success of error objects
+					if("success" in response)
+					{
+						//Sets bridge name in internal memory
+						_s.name = response.success[0];
+						//Runs successful callback
+						cb("Bridge name successfuly changed to : " + response.success[0]);
+					}
+					else if("error" in response){
+						//Fires error callback with response data
+						err(response);
+					}
+				}
+				//HTTP request finished but not successful
+				else if(http.readyState == 4){
+					//Fires error callback
+					err("HTTP request encountered an error.");
+				}
+			}
+
+			//Prepares HTTP request
+			http.open("PUT", this.url + "/config", true);
+			//Sends HTTP request
+			http.send({"name":n});
+		}
 	}
 
 	function Light(name, type, state, index){
@@ -273,6 +379,22 @@ function EzHue(){
 		this.type = type;
 		this.state = state;
 		this.index = index;
+
+		this.setNewState = function(nState){
+
+		}
+
+		this.sendState = function(){
+
+		}
+
+		this.updateState = function(){
+
+		}
+
+		this.rename = function(name){
+
+		}
 	}
 }
 
