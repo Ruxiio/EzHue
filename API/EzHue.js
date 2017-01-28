@@ -203,6 +203,7 @@ function EzHue(){
 		}
 
 		//Finds and adds new lights that are not connected to the bridge
+		//Update and complete variables are callback functions
 		this.searchForLights = function(update, complete){
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
@@ -255,6 +256,7 @@ function EzHue(){
 								//Sets to ignore lights that have already been added
 								lastLen = rLen;
 							}
+							//Fires status update callback
 							update(newLights);
 						}
 						else if(http.readyState == 4){
@@ -284,7 +286,7 @@ function EzHue(){
 						for(var i = response.length - newLights.length; i < response.length; i++){
 							result.push(response[i]);
 						}
-
+						//Fires callback to handle search completion
 						complete(result);
 						//Resets the current light set in the case of
 						//lights being removed
@@ -303,14 +305,18 @@ function EzHue(){
 		}
 
 		//Deletes light from bridge
-		this.deleteLight = function(index){
+		this.deleteLight = function(index, cb){
+			//Checks to see if light exists
 			if(parent.lights[index] === "undefined" || parent.lights[index] == null){
 				return;
 			}
 
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
+					//Refreshes the light list
 					this.findLights();
+					//Fires callback
+					cb();
 				}
 				else if(http.readyState == 4){
 					//Handle errors
@@ -321,6 +327,46 @@ function EzHue(){
 			http.open("DELETE", this.url + "/lights/" + index, true);
 			//Sends HTTP request
 			http.send();
+		}
+
+		this.rename(n, cb, err){
+			//Temp reference to bridge
+			var _s = this;
+			//Checks if the new name is a valid string
+			if(typeof(n) !== "string"){
+				//Fires error callback and ends function
+				err("String must be provided as first variable");
+				return;
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					//Looks for success of error objects
+					if("success" in response)
+					{
+						//Sets bridge name in internal memory
+						_s.name = response.success[0];
+						//Runs successful callback
+						cb("Bridge name successfuly changed to : " + response.success[0]);
+					}
+					else if("error" in response){
+						//Fires error callback with response data
+						err(response);
+					}
+				}
+				//HTTP request finished but not successful
+				else if(http.readyState == 4){
+					//Fires error callback
+					err("HTTP request encountered an error.");
+				}
+			}
+
+			//Prepares HTTP request
+			http.open("PUT", this.url + "/config", true);
+			//Sends HTTP request
+			http.send({"name":n});
 		}
 	}
 
