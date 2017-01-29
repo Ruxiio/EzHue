@@ -3,7 +3,7 @@ function EzHue(){
 	var http = new XMLHttpRequest();
 	var response;
 	var useLocal = (typeof(Storage) !== "undefined");
-
+	var api = this;
 	//Bridge instance
 	this.bridge = {};
 	//Lights array
@@ -15,7 +15,8 @@ function EzHue(){
 			ip:"",
 			url:"",
 			username:"",
-			name:""
+			name:"",
+			config:{}
 		}
 
 		if(useLocal){
@@ -31,6 +32,7 @@ function EzHue(){
 						//If a successful request was sent the bridge is valid and can be used
 						if("success" in response){
 							this.bridge = localstorage.bridge;
+							cbSuccess(this);
 						}
 						else{
 							//Abandon localstorage and find new bridge
@@ -132,6 +134,8 @@ function EzHue(){
 						console.log(response.name);
 						//Stores bridge name
 						bridgeFrame.name = response.name;
+						//Stores bridge config data
+						bridgeFrame.config = response;
 						//Applies bridge frame to bridge object
 						initBridge(scope);
 					}
@@ -158,7 +162,7 @@ function EzHue(){
 		}
 	}
 
-	//Creates the bridge object
+	//Bridge object constructor
 	function Bridge(frame, scope){
 		//Sets bridge variables
 		this.ip = frame.ip;
@@ -167,13 +171,11 @@ function EzHue(){
 		this.url = frame.url;
 		this.lastScan;
 		this.config;
-		//Parent scope to manipulate lights to the EzHue object
-		var parent = scope;
 
 		//Finds all lights connected to bridge
 		this.findLights = function(cb){
 			//Resets current lights
-			parent.lights = [];
+			api.lights = [];
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){	
 					//Stores response object
@@ -188,17 +190,18 @@ function EzHue(){
 						//Create light object
 						var tmp = new Light(curr.name, curr.type, curr.state, _index);
 						//Add light to array
-						parent.lights.push(tmp);
+						api.lights.push(tmp);
 						//Increment index tracker
 						_index++;
 						//If this is the final itteration fire the completion callback
 						if(i == lightCount - 1){
-							cb();
+							cb(true);
 						}
 					}
 				}
 				else if(http.readyState == 4){
 					//Handle errors
+					cb(false);
 				}
 			}
 			//Prepare HTTP request
@@ -220,6 +223,7 @@ function EzHue(){
 				}
 				else if(http.readyState == 4){
 					//Handle Errors
+					cb(false);
 				}
 			}
 
@@ -266,6 +270,7 @@ function EzHue(){
 						}
 						else if(http.readyState == 4){
 							//Handle errors
+							cb(false);
 						}
 					}
 					//Prepares HTTP request
@@ -299,6 +304,7 @@ function EzHue(){
 					}
 					else if(http.readyState == 4){
 						//Handle errors
+						cb(false);
 					}
 				}
 
@@ -312,7 +318,7 @@ function EzHue(){
 		//Deletes light from bridge
 		this.deleteLight = function(index, cb){
 			//Checks to see if light exists
-			if(parent.lights[index] === "undefined" || parent.lights[index] == null){
+			if(api.lights[index] === "undefined" || api.lights[index] == null){
 				return;
 			}
 
@@ -321,10 +327,11 @@ function EzHue(){
 					//Refreshes the light list
 					this.findLights();
 					//Fires callback
-					cb();
+					cb(true);
 				}
 				else if(http.readyState == 4){
 					//Handle errors
+					cb(false);
 				}
 			}
 
@@ -334,13 +341,13 @@ function EzHue(){
 			http.send();
 		}
 
-		this.rename = function(n, cb, err){
+		this.rename = function(n, cb){
 			//Temp reference to bridge
 			var _s = this;
 			//Checks if the new name is a valid string
 			if(typeof(n) !== "string"){
 				//Fires error callback and ends function
-				err("String must be provided as first variable");
+				cb(false, "String must be provided as first variable");
 				return;
 			}
 
@@ -354,17 +361,17 @@ function EzHue(){
 						//Sets bridge name in internal memory
 						_s.name = response.success[0];
 						//Runs successful callback
-						cb("Bridge name successfuly changed to : " + response.success[0]);
+						cb(true, "Bridge name successfuly changed to : " + response.success[0]);
 					}
 					else if("error" in response){
 						//Fires error callback with response data
-						err(response);
+						cb(false, response);
 					}
 				}
 				//HTTP request finished but not successful
 				else if(http.readyState == 4){
 					//Fires error callback
-					err("HTTP request encountered an error.");
+					cb(false, "HTTP request encountered an error.");
 				}
 			}
 
@@ -385,10 +392,11 @@ function EzHue(){
 					//Adds config data to bridge
 					_s.config = response;
 					//Fires callback with response data
-					cb(_s.config);
+					cb(true, _s.config);
 				}
 				else if(http.readyState == 4){
 					//Handle errors
+					cb(false);
 				}
 			}
 
@@ -411,14 +419,16 @@ function EzHue(){
 						//Removes the username from local whitelist
 						delete _s.config.whitelist[username];
 						//Fires callback
-						cb();
+						cb(true);
 					}
 					else{
 						//Handle errors
+						cb(false);
 					}
 				}
 				else if(http.readyState == 4){
 					//Handle errors
+					cb(false);
 				}
 			}
 
@@ -434,26 +444,114 @@ function EzHue(){
 		}
 	}
 
+	//Light object constructor
 	function Light(name, type, state, index){
 		this.name = name;
 		this.type = type;
 		this.state = state;
 		this.index = index;
 
-		this.setNewState = function(nState){
+		this.sendState = function(bridge, nState, cb){
+
+			var nStateKeys = Object.keys(nState);
+			var stateKeys = Object.keys(state);
+			var requestBody = "{";
+
+			//Preparing body message
+			for(var i in nStateKeys){
+				//Looping through values in the new state
+				for(var j in stateKeys){
+					//Looping through the values in the current state
+					//This ensures we are only sending updated items to the bridge
+					if(nStateKeys[i] == stateKeys[j]){
+						//Checks if the value of the matching keys matches
+						if(nState[nStateKeys[i]] != state[stateKeys[j]]){
+							//Checks if xy
+							if(nStateKeys[i] == "xy"){
+								//Makes sure the xy values are different than the current state
+								if(nState.xy[0] != state.xy[0] || nState.xy[1] != state.xy[1]){
+									//Adds the xy array to the request body
+									requestBody += '"' + nStateKeys[i] + '":[' + nState["xy"][0] + "," + nState["xy"][1] + "],";
+								}
+							}
+							else{
+								//Adds key to request body
+								requestBody += '"' + nStateKeys[i] + '":';
+								//Checks if key value needs to be a string
+								if(nStateKeys[i] == "colormode" || nStateKeys[i] == "alert" || nStateKeys[i] == "effect"){
+									//Wraps the key value in string notation
+									requestBody += '"' + nState[nStateKeys[i]] + '",';
+								}
+								else{
+									//Adds the key value to the request body
+									requestBody += nState[nStateKeys[i]] + ",";
+								}
+							}
+						}
+					}
+				}
+			}
+
+			//Removes last comma from body and adds closing brace
+			var index = requestBody.length - 1;
+			var tmp = requestBody.substring(0, index);
+			requestBody = tmp + "}";
+
+			http.onreadystatechange = function(){
+				if(requestStatus()){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					if("success" in response){
+
+					}
+					else{
+						//Bridge error
+						cb(false);
+					}
+
+				}
+				else if(http.readyState == 4){
+					//HTTP error
+					cb(false);
+				}
+			}
+
+
+			//Prepare HTTP request
+			http.open('PUT', bridge.url + "/lights/" + this.index, true);
+			//Sends HTTP request
+			http.send(requestBody);
 
 		}
 
-		this.sendState = function(){
+		this.rename = function(name, cb){
+			//Temp refrence to light
+			var _s = this;
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					if("success" in response){
+						//Update light objects name
+						_s.name = name;
+						//Fires callback function
+						cb(true);
+					}
+					else{
+						//Handle errors
+						cb(false);
+					}
+				}
+				else if(http.readyState == 4){
+					//Handle errors
+					cb(false);
+				}
+			}
 
-		}
-
-		this.updateState = function(){
-
-		}
-
-		this.rename = function(name){
-
+			//Prepare HTTP request
+			http.open('PUT', api.bridge.url + "/lights/" + this.index, true);
+			//Send HTTP request
+			http.send({"name":name});
 		}
 	}
 }
