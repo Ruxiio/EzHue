@@ -1,13 +1,18 @@
 function EzHue(){
-	//http variables
+	//HTTP variables
 	var http = new XMLHttpRequest();
 	var response;
 	var useLocal = (typeof(Storage) !== "undefined");
+
+	//Refrence to api object
 	var api = this;
+
 	//Bridge instance
 	this.bridge = {};
+
 	//Lights array
 	this.lights = [];
+
 	//Find and create bridge
 	this.createBridge = function(cbAlert, cbFail, cbSuccess){
 		//Bridge frame
@@ -25,8 +30,6 @@ function EzHue(){
 				findBridge(this);
 			}
 			else{
-				//Temp refrence to scope for use in http function
-				var _s = this;
 				http.onreadystatechange = function(){
 					if(requestStatus(http)){
 						//If a successful request was sent the bridge is valid and can be used
@@ -36,7 +39,7 @@ function EzHue(){
 						}
 						else{
 							//Abandon localstorage and find new bridge
-							findBridge(_s);
+							findBridge();
 						}
 					}
 				}
@@ -47,11 +50,11 @@ function EzHue(){
 			}
 		}
 		else{
-			findBridge(this);
+			findBridge();
 		}
 
 		//Find bridge with HUE nupnp
-		function findBridge(scope){
+		function findBridge(){
 			http.onreadystatechange = function(){
 				//Waits for HTTP success
 				if(requestStatus(http)){
@@ -63,7 +66,7 @@ function EzHue(){
 					//Generates bridge url
 					bridgeFrame.url = "http://" + bridgeFrame.ip + "/api";
 					//Generates bridge username
-					generateUsername(bridgeFrame.url, scope);
+					generateUsername(bridgeFrame.url);
 				}
 				else if(http.readyState == 4){
 					//Handle errors
@@ -75,7 +78,7 @@ function EzHue(){
 			http.send();
 		}
 
-		function generateUsername(url, scope){
+		function generateUsername(url){
 			//Sends POST request
 			request();
 			var isFirst = true;
@@ -107,8 +110,8 @@ function EzHue(){
 						bridgeFrame.username = response[0].success.username;
 						//Generates url with username
 						bridgeFrame.url += "/" + bridgeFrame.username;
-						//Gtes name from bridge config
-						findBridgeName(scope);
+						//Gets name from bridge config
+						findBridgeName();
 					}
 				}
 				else if(http.readyState == 4){
@@ -125,7 +128,7 @@ function EzHue(){
 				http.send("{\"devicetype\":\"Rux Lights\"}");
 			}
 
-			function findBridgeName(scope){
+			function findBridgeName(){
 				console.log("finding bridge name");
 				http.onreadystatechange = function(){
 					if(requestStatus(http)){
@@ -137,7 +140,7 @@ function EzHue(){
 						//Stores bridge config data
 						bridgeFrame.config = response;
 						//Applies bridge frame to bridge object
-						initBridge(scope);
+						initBridge();
 					}
 					else if(http.readyState == 4){
 						//Handle errors
@@ -149,21 +152,21 @@ function EzHue(){
 				http.send();
 			}
 
-			function initBridge(scope){
+			function initBridge(){
 				//Create bridge as an object of EzHue
-				scope.bridge = new Bridge(bridgeFrame, scope);
+				api.bridge = new Bridge(bridgeFrame, api);
 				//If local storage is supported, store bridge data for later use
 				if(useLocal){
-					localstorage.bridge = scope.bridge;
+					localstorage.bridge = api.bridge;
 				}
 				//Fires the success function
-				cbSuccess(scope.bridge);
+				cbSuccess(api.bridge);
 			}
 		}
 	}
 
 	//Bridge object constructor
-	function Bridge(frame, scope){
+	function Bridge(frame){
 		//Sets bridge variables
 		this.ip = frame.ip;
 		this.username = frame.username;
@@ -201,7 +204,7 @@ function EzHue(){
 				}
 				else if(http.readyState == 4){
 					//Handle errors
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 			//Prepare HTTP request
@@ -223,7 +226,7 @@ function EzHue(){
 				}
 				else if(http.readyState == 4){
 					//Handle Errors
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 
@@ -270,7 +273,7 @@ function EzHue(){
 						}
 						else if(http.readyState == 4){
 							//Handle errors
-							cb(false);
+							cb(false, "An HTTP error has occured");
 						}
 					}
 					//Prepares HTTP request
@@ -304,7 +307,7 @@ function EzHue(){
 					}
 					else if(http.readyState == 4){
 						//Handle errors
-						cb(false);
+						cb(false, "An HTTP error has occured");
 					}
 				}
 
@@ -331,7 +334,7 @@ function EzHue(){
 				}
 				else if(http.readyState == 4){
 					//Handle errors
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 
@@ -341,6 +344,7 @@ function EzHue(){
 			http.send();
 		}
 
+		//Renames the bridge
 		this.rename = function(n, cb){
 			//Temp reference to bridge
 			var _s = this;
@@ -381,6 +385,7 @@ function EzHue(){
 			http.send({"name":n});
 		}
 
+		//Gets the bridge config data
 		this.getConfig = function(cb){
 			//Temp refrence to bridge
 			var _s = this;
@@ -396,7 +401,7 @@ function EzHue(){
 				}
 				else if(http.readyState == 4){
 					//Handle errors
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 
@@ -406,6 +411,7 @@ function EzHue(){
 			http.send();
 		}
 
+		//Removes a user from the whitelist
 		this.deleteUser = function(username, cb){
 			//Temp reference to bridge
 			var _s = this;
@@ -423,12 +429,12 @@ function EzHue(){
 					}
 					else{
 						//Handle errors
-						cb(false);
+						cb(false, "The bridge has returned an error");
 					}
 				}
 				else if(http.readyState == 4){
 					//Handle errors
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 
@@ -442,6 +448,83 @@ function EzHue(){
 				}
 			}
 		}
+
+		//Removes all users from the whitelist excluding this user
+		this.resetWhitelist = function(cb){
+			//Stores successes and errors to send to the callback
+			var log = [];
+			var deletedUsers = [];
+			var userQueue = [];
+			//Loops through all users
+			for(var i in this.config.whitelist){
+				//Checks if the current user is this user
+				if(Object.keys(this.config.whitelist[i]) !=  this.username){
+					userQueue.push(Object.keys(this.config.whitelist[i]));
+				}
+				if(i == this.config.whitelist.length){
+					beginQueue();
+				}
+			}
+
+			function beginQueue(){
+				var _index = userQueue.length;
+				//Begins a queue that cycles through
+				var int = window.setInterval(function(){
+					http.onreadystatechange = function(){
+						if(requestStatus()){
+							//Stores response object
+							response = JSON.parse(http.responseText);
+							if("success" in response[0]){
+								log.push({"success":"User : " + Object.keys(this.config.whitelist[i]) + " deleted"});
+								//Adds username to the deleted user list
+								deletedUsers.push(this.config.whitelist[i]);
+							}
+						}
+						else if(http.readyState == 4){
+							log.push({"error":"HTTP error has occured when deleting user : " + Object.keys(this.config.whitelist[i])});
+						}
+
+						if(_index != 0){
+							_index--;
+						}
+						else{
+							clearInt();
+						}
+					}
+					//Prepares HTTP request
+					http.open('DELETE', this.url + "/config/whitelist/" + Object.keys(this.config.whitelist[i]), true);
+					//Sends HTTP request
+					http.send();
+				}, 75);
+
+				function clearInt(){
+					int.clearInterval();
+					//Cycles through the deleted users
+					for(var i in deletedUsers){
+						//Cycles through the whitelist data
+						for(var j in this.config.whitelist){
+							//Checks for a match in the deleted users and whitelist data
+							if(Object.keys(this.config.whitelist[j]) == deletedUsers[i]){
+								//Removes the user data
+								this.config.whitelist.splice(j, 1);
+							}
+						}
+					}
+					cb(true, log);
+				}
+			}
+		}
+
+		//Finds groups on the bridge
+		this.findGroups = function(cd){
+
+		}
+
+		//Deletes a group from the bridge
+		this.deleteGroup = function(group, cb){
+
+		}
+
 	}
 
 	//Light object constructor
@@ -451,10 +534,11 @@ function EzHue(){
 		this.state = state;
 		this.index = index;
 
+		//Sends a new state to the bridge
 		this.sendState = function(bridge, nState, cb){
 
 			var nStateKeys = Object.keys(nState);
-			var stateKeys = Object.keys(state);
+			var stateKeys = Object.keys(this.state);
 			var requestBody = "{";
 
 			//Preparing body message
@@ -465,11 +549,11 @@ function EzHue(){
 					//This ensures we are only sending updated items to the bridge
 					if(nStateKeys[i] == stateKeys[j]){
 						//Checks if the value of the matching keys matches
-						if(nState[nStateKeys[i]] != state[stateKeys[j]]){
+						if(nState[nStateKeys[i]] != this.state[stateKeys[j]]){
 							//Checks if xy
 							if(nStateKeys[i] == "xy"){
 								//Makes sure the xy values are different than the current state
-								if(nState.xy[0] != state.xy[0] || nState.xy[1] != state.xy[1]){
+								if(nState.xy[0] != this.state.xy[0] || nState.xy[1] != this.state.xy[1]){
 									//Adds the xy array to the request body
 									requestBody += '"' + nStateKeys[i] + '":[' + nState["xy"][0] + "," + nState["xy"][1] + "],";
 								}
@@ -502,17 +586,28 @@ function EzHue(){
 					//Stores response object
 					response = JSON.parse(http.responseText);
 					if("success" in response){
-
+						//Applying new state to light object
+						for(var i in nStateKeys){
+							//Looping through values in the new state
+							for(var j in stateKeys){
+								//Looping through the values in the current state
+								if(nStateKeys[i] == stateKeys[j]){
+									//Overwrites the previous state with the new state value
+									this.state[stateKeys[j]] = nState[nStateKeys[i]];
+								}
+							}
+						}
+						cb(true);
 					}
 					else{
 						//Bridge error
-						cb(false);
+						cb(false, "The bridge has returned an error");
 					}
 
 				}
 				else if(http.readyState == 4){
 					//HTTP error
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 
@@ -521,9 +616,9 @@ function EzHue(){
 			http.open('PUT', bridge.url + "/lights/" + this.index, true);
 			//Sends HTTP request
 			http.send(requestBody);
-
 		}
 
+		//Renames the light
 		this.rename = function(name, cb){
 			//Temp refrence to light
 			var _s = this;
@@ -539,12 +634,12 @@ function EzHue(){
 					}
 					else{
 						//Handle errors
-						cb(false);
+						cb(false, "The bridge has returned an error");
 					}
 				}
 				else if(http.readyState == 4){
 					//Handle errors
-					cb(false);
+					cb(false, "An HTTP error has occured");
 				}
 			}
 
@@ -554,30 +649,128 @@ function EzHue(){
 			http.send({"name":name});
 		}
 	}
+
+	//Group object constructor
+	function Group(name, type, lights, action){
+		this.name = name;
+		this.type = type;
+		this.lights = lights;
+		this.action = action;
+		
+		//Stores the time the group was last updated
+		this.lastUpdate = 0;
+
+		//Renames the group
+		this.rename = function(name, cb){
+
+		}
+
+		//Adds a light to the group
+		this.addLight = function(light, cb){
+
+		}
+
+		//Removes a light from the group
+		this.removeLight = function(light, cb){
+
+		}
+
+		//Updates the state of all lights in the group
+		this.sendAction = function(bridge, nAction, cb){
+			var nActionKeys = Object.keys(nAction);
+			var actionKeys = Object.keys(this.action);
+			var requestBody = "{";
+			var time = new Date();
+
+			//Limits group updating to 1 per second
+			if(time.now() < this.lastUpdate + 100){
+				cb(false, "Must wait 1 second before sending another group update");
+				return;
+			}
+
+			//Preparing body message
+			for(var i in nActionKeys){
+				//Looping through values in the new action
+				for(var j in actionKeys){
+					//Looping through the values in the current action
+					//This ensures we are only sending updated items to the bridge
+					if(nActionKeys[i] == actionKeys[j]){
+						//Checks if the value of the matching keys matches
+						if(nAction[nActionKeys[i]] != this.action[actionKeys[j]]){
+							//Checks if xy
+							if(nActionKeys[i] == "xy"){
+								//Makes sure the xy values are different than the current action
+								if(nAction.xy[0] != this.action.xy[0] || nAction.xy[1] != this.action.xy[1]){
+									//Adds the xy array to the request body
+									requestBody += '"' + nActionKeys[i] + '":[' + nAction["xy"][0] + "," + nAction["xy"][1] + "],";
+								}
+							}
+							else{
+								//Adds key to request body
+								requestBody += '"' + nActionKeys[i] + '":';
+								//Checks if key value needs to be a string
+								if(nActionKeys[i] == "colormode" || nActionKeys[i] == "alert" || nActionKeys[i] == "effect"){
+									//Wraps the key value in string notation
+									requestBody += '"' + nAction[nActionKeys[i]] + '",';
+								}
+								else{
+									//Adds the key value to the request body
+									requestBody += nAction[nActionKeys[i]] + ",";
+								}
+							}
+						}
+					}
+				}
+			}
+
+			//Removes last comma from body and adds closing brace
+			var index = requestBody.length - 1;
+			var tmp = requestBody.substring(0, index);
+			requestBody = tmp + "}";
+
+			http.onreadyactionchange = function(){
+				if(requestStatus()){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					if("success" in response){
+						//Applying new action to light object
+						for(var i in nActionKeys){
+							//Looping through values in the new action
+							for(var j in actionKeys){
+								//Looping through the values in the current action
+								if(nActionKeys[i] == actionKeys[j]){
+									//Overwrites the previous action with the new action value
+									this.action[actionKeys[j]] = nAction[nActionKeys[i]];
+								}
+							}
+						}
+						this.lastUpdate = time.now();
+						cb(true);
+					}
+					else{
+						//Bridge error
+						cb(false, "The bridge has returned an error");
+					}
+
+				}
+				else if(http.readyaction == 4){
+					//HTTP error
+					cb(false, "An HTTP error occured");
+				}
+			}
+
+
+			//Prepare HTTP request
+			http.open('PUT', bridge.url + "/lights/" + this.index, true);
+			//Sends HTTP request
+			http.send(requestBody);
+		}
+	}
 }
 
+//Helper function for http requests
 function requestStatus(http){
-
 	if(http.readyState != 4){return false;}
-
 	if(http.status == 200){return true;}
-	
-	//return false;
-}
-
-var hueapi = new EzHue();
-
-
-function Connect(){
-	hueapi.createBridge();
-	hueapi.bridge.findLights();
-	console.log(hueapi.lights);
-	hueapi.bridge.searchForLights(function(newStuff){
-		console.log("I found something");
-	}, function(list){
-		console.log("Here is everything we found");
-	});
-}
-
-function Check(){
+	else {return false;}
 }
