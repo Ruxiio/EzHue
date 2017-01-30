@@ -4,6 +4,27 @@ function EzHue(){
 	var response;
 	var useLocal = (typeof(Storage) !== "undefined");
 
+	this.groupClasses = {
+		livingroom:"Living room",
+		kitchen:"Kitchen",
+		dining:"Dining",
+		bedroom:"Bedroom",
+		kids:"Kids bedroom",
+		bath:"Bathroom",
+		nursery:"Nursery",
+		rec:"Recreation",
+		office:"Office",
+		gym:"Gym",
+		hall:"Hallway",
+		toilet:"Toilet",
+		front:"Front door",
+		garage:"Garage",
+		terrace:"Terrace",
+		garden:"Garden",
+		drive:"Driveway",
+		carport:"Carport",
+		other:"Other"
+	};
 	//Refrence to api object
 	var api = this;
 
@@ -12,6 +33,9 @@ function EzHue(){
 
 	//Lights array
 	this.lights = [];
+
+	//Groups array
+	this.groups = [];
 
 	//Find and create bridge
 	this.createBridge = function(cbAlert, cbFail, cbSuccess){
@@ -516,8 +540,76 @@ function EzHue(){
 		}
 
 		//Finds groups on the bridge
-		this.findGroups = function(cd){
+		this.findGroups = function(cb){
 
+		}
+
+		//Creates a new group on the bridge
+		this.createGroup = function(name, type, _class, lights, cb){
+			//Holder for lights that exist on bridge
+			var validLights = [];
+
+			//Checks valid type
+			if(type != "LightGroup" || type != "Room"){
+				cb(false, "Must select a valid class for group creation");
+				return;
+			}
+			//Checks valid class
+			for(i in this.groupClasses){
+				if(_class == this.groupClasses[i]){
+					break;
+				}
+				else if(i == this.groupClasses.length){
+					cb(false, "Must enter a valid class for group creation");
+					return;
+				}
+			}
+			//Checks lights
+			if(!Array.isArray(lights)){
+				cb(false, "Must pass in an array for the lights variable");
+				return;
+			}
+			else{
+				//Loops through lights to be in group
+				for(i in lights){
+					//Loops through existing lights
+					for(j in this.lights){
+						if(lights[i] == this.lights[j].index){
+							//If light exists, add to valid list and move to next light
+							validLights.push(lights[i]);
+							break;
+						}
+					}
+				}
+			}
+
+			//Prepares request object
+			var requestBody = {
+				"name":name,
+				"type":type,
+				"class":_class,
+				"lights":validLights
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					respose = JSON.parse(http.responseText);
+					if("success" in response){
+						//Creates group object
+						api.groups.push(requestBody.name, response.success.id, requestBody.type, requestBody._class, requestBody.lights);
+						cb(true);
+					}
+				}
+				else if(http.readyState == 4){
+					cb(false, "An HTTP error has occured")
+				}
+			}
+
+			//Prepare HTTP request
+			http.open('POST', api.bridge.url + "/groups", true)
+			//Send HTTP request
+			http.send(requestBody);
 		}
 
 		//Deletes a group from the bridge
@@ -651,11 +743,38 @@ function EzHue(){
 	}
 
 	//Group object constructor
-	function Group(name, type, lights, action){
+	function Group(name, id, type, _class, lights){
 		this.name = name;
+		this.id = id;
 		this.type = type;
+		this.class = _class;
 		this.lights = lights;
-		this.action = action;
+		this.action;
+		this.state;
+
+		//Gets the groups current action data
+		function getGroupActionData(){
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+
+					this.action = response.action;
+					this.state = response.state;
+				}
+				else if(http.readyState == 4){
+					//HTTP error
+				}
+			}
+
+			//Prepare HTTP request
+			http.open('GET', api.bridge.url + "/groups/" + this.id, true);
+			//Send HTTP request
+			http.send();
+		}
+
+		//Loads the groups data on creation
+		getGroupActionData();
 		
 		//Stores the time the group was last updated
 		this.lastUpdate = 0;
@@ -666,17 +785,130 @@ function EzHue(){
 		}
 
 		//Adds a light to the group
-		this.addLight = function(light, cb){
+		this.addLights = function(light, cb){
 
+			var log = {
+				"successful":[],
+				"failed":[]
+			}
+
+			//Verifies lights input is an array with atleast 1 value
+			if(!Array.isArray(lights)){
+				cb(false, "Must input an array to add/remove light(s) from a group");
+				return;
+			}
+			else if(lights < 1){
+				cb(false, "Lights array was empty");
+			}
+
+			requestBody = this.lights;
+
+			//Checks if the light exists on the bridge
+			for(i in lights){
+				//Checks if light is already in group
+				if(this.lights.indexOf(lights[i]) != -1){
+					//Light already exists in group
+					log.failed.push(lights[i]);
+				}
+				else{
+					for(j in api.lights){
+						if(lights[i] == api.lights[j].id){
+							//Adds light to the request
+							requestBody.push(lights[i]);
+							//Adds light to success list
+							log.successful.push(lights[i]);
+						}
+					}
+				}
+	
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+
+					if("success" in response){
+						//Adds light id to group
+						this.lights.push(light);
+						cb(true, log);
+					}
+					else{
+						cb(false, "A bridge error occured");
+					}
+				}
+				else if(http.readyState == 4){
+					cb(false, "An HTTP error occured");
+				}
+			}
+
+			//Prepares HTTP request
+			http.open('PUT', api.bridge.url + "/groups/" + this.id, true);
+			//Sends HTTP request
+			http.send();
 		}
 
 		//Removes a light from the group
-		this.removeLight = function(light, cb){
+		this.removeLights = function(lights, cb){
+			var log = {
+				"successful":[],
+				"failed":[]
+			}
 
+			//Verifies lights input is an array with atleast 1 value
+			if(!Array.isArray(lights)){
+				cb(false, "Must input an array to add/remove light(s) from a group");
+				return;
+			}
+			else if(lights < 1){
+				cb(false, "Lights array was empty");
+			}
+
+			requestBody = this.lights;
+
+			//Checks that the light exists
+			for(i in lights){
+				for(j in this.lights){
+					if(this.lights[j] == lights[i]){
+						//Removes the light from the groups light array 
+						requestBody.splice(j, 1);
+						//Adds light to the success list
+						log.successful.push(lights[i])
+						break;
+					}
+					else if(j == this.lights.length){
+						//Adds light to the fail list
+						log.failed.push(lights[i]);
+					}
+				}
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores reaponse object
+					response = JSON.parse(http.responseText);
+
+					if("success" in response[0]){
+						//Sets the light array to the new light set
+						this.lights = requestBody;
+						cb(true, log);
+					}
+					else{
+						cb(false, "A bridge error has occured");
+					}
+				}
+				else if(http.readyState == 4){
+					cb(false, "An HTTP error has occured");
+				}
+			}
+
+			//Prepares HTTP Request
+			http.open('PUT', api.bridge.url + "/groups/" + this.id, true);
+			http.send({"lights":requestBody});
 		}
 
 		//Updates the state of all lights in the group
-		this.sendAction = function(bridge, nAction, cb){
+		this.sendAction = function(nAction, cb){
 			var nActionKeys = Object.keys(nAction);
 			var actionKeys = Object.keys(this.action);
 			var requestBody = "{";
@@ -761,9 +993,33 @@ function EzHue(){
 
 
 			//Prepare HTTP request
-			http.open('PUT', bridge.url + "/lights/" + this.index, true);
+			http.open('PUT', api.bridge.url + "/lights/" + this.index, true);
 			//Sends HTTP request
 			http.send(requestBody);
+		}
+
+		//Finds the state of one light in the group
+		this.getAction = function(cb){
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+
+					this.action = response.action;
+					this.state = response.state;
+
+					cb(true);
+				}
+				else if(http.readyState == 4){
+					cb(false, "An HTTP error occured");
+				}
+			}
+
+			//Prepare HTTP request
+			http.open('GET', api.bridge.url + "/groups/" + this.id, true);
+			//Send HTTP request
+			http.send();
 		}
 	}
 }
