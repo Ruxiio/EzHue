@@ -284,7 +284,7 @@ function EzHue(){
 								firstResponse = false;
 							}
 							if(rLen > 1 && rLen > lastLen){
-								//Loops through respose object (ignores lastscan)
+								//Loops through response object (ignores lastscan)
 								for(var i = lastLen - 1; i < rLen - 1; i++){
 									//Adds new lights to placeholder
 									newLights.push(Object.keys(response[i]));
@@ -495,7 +495,7 @@ function EzHue(){
 				//Begins a queue that cycles through
 				var int = window.setInterval(function(){
 					http.onreadystatechange = function(){
-						if(requestStatus()){
+						if(requestStatus(http)){
 							//Stores response object
 							response = JSON.parse(http.responseText);
 							if("success" in response[0]){
@@ -542,6 +542,30 @@ function EzHue(){
 		//Finds groups on the bridge
 		this.findGroups = function(cb){
 
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					api.groups = [];
+					//Loops through returned groups
+					for(i in response){
+						//Short hand for current group
+						var _curr = response[i];
+						//Adds group to group array
+						api.groups.push(new Group(_curr.name, Object.keys(_curr), _curr.type, _curr.lights));
+					}
+					cb(true);
+				}
+				else if(http.readyState == 4){
+					//Fires Callback
+					cb(false, "An HTTP error has occured");
+				}
+			}
+
+			//Prepares HTTP request
+			http.open('GET', this.url + "/groups", true);
+			//Sends the HTTP request
+			http.send();
 		}
 
 		//Creates a new group on the bridge
@@ -573,8 +597,8 @@ function EzHue(){
 				//Loops through lights to be in group
 				for(i in lights){
 					//Loops through existing lights
-					for(j in this.lights){
-						if(lights[i] == this.lights[j].index){
+					for(j in api.lights){
+						if(lights[i] == api.lights[j].index){
 							//If light exists, add to valid list and move to next light
 							validLights.push(lights[i]);
 							break;
@@ -594,7 +618,7 @@ function EzHue(){
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
 					//Stores response object
-					respose = JSON.parse(http.responseText);
+					response = JSON.parse(http.responseText);
 					if("success" in response){
 						//Creates group object
 						api.groups.push(requestBody.name, response.success.id, requestBody.type, requestBody._class, requestBody.lights);
@@ -613,8 +637,47 @@ function EzHue(){
 		}
 
 		//Deletes a group from the bridge
-		this.deleteGroup = function(group, cb){
+		this.deleteGroup = function(id, cb){
+			//Checks if the group exists and stores array index of deleted group
+			var _index;
+			for(i in api.groups){
+				if(id == api.groups[i].id){
+					_index = i;
+					break;
+				}
+				else if(i == api.groups.length){
+					//Fires Callback
+					cb(false, "Group does not exist");
+				}
+			}
 
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+
+					if("success" in response[0]){
+						//Removes group from api array
+						api.groups.splice(_index, 1);
+						//Fires Callback
+						cb(true);
+					}
+					else{
+						//Fires Callback
+						cb(false, "A bridge error has occured");
+					}
+
+				}
+				else if(http.readyState == 4){
+					//Fires Callback
+					cb(false, "An HTTP error has occured");
+				}
+			}
+
+			//Prepares HTTP request
+			http.open('DELETE', this.url + "/groups/" + id, true);
+			//Sends HTTP request
+			http.send();
 		}
 
 	}
@@ -674,7 +737,7 @@ function EzHue(){
 			requestBody = tmp + "}";
 
 			http.onreadystatechange = function(){
-				if(requestStatus()){
+				if(requestStatus(http)){
 					//Stores response object
 					response = JSON.parse(http.responseText);
 					if("success" in response){
@@ -743,11 +806,11 @@ function EzHue(){
 	}
 
 	//Group object constructor
-	function Group(name, id, type, _class, lights){
+	function Group(name, id, type, lights){
 		this.name = name;
 		this.id = id;
 		this.type = type;
-		this.class = _class;
+		this.class;
 		this.lights = lights;
 		this.action;
 		this.state;
@@ -761,6 +824,7 @@ function EzHue(){
 
 					this.action = response.action;
 					this.state = response.state;
+					this.class = response.class;
 				}
 				else if(http.readyState == 4){
 					//HTTP error
@@ -773,7 +837,7 @@ function EzHue(){
 			http.send();
 		}
 
-		//Loads the groups data on creation
+		//Loads the groups data on creation if not provided
 		getGroupActionData();
 		
 		//Stores the time the group was last updated
@@ -782,6 +846,39 @@ function EzHue(){
 		//Renames the group
 		this.rename = function(name, cb){
 
+			if(typeof(name) != string || name.length < 2){
+				//Fires Callback
+				cb(false, "The name given is not valid");
+				//Exit the function
+				return;
+			}
+
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+
+					if("success" in response){
+						//Updated the group name
+						this.name = name;
+						//Fires Callback
+						cb(true);
+					}
+					else{
+						//Fires Callback
+						cb(false, "A bridge error has occured");
+					}
+				}
+				else if(http.readyState == 4){
+					//Fires Callback
+					cb(false, "An HTTP error occured");
+				}
+			}
+
+			//Prepare HTTP request
+			http.open('PUT', api.bridge.url + "/groups/" + this.id, true);
+			//Send HTTP request
+			http.send({"name":name});
 		}
 
 		//Adds a light to the group
@@ -820,17 +917,15 @@ function EzHue(){
 						}
 					}
 				}
-	
 			}
 
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
 					//Stores response object
 					response = JSON.parse(http.responseText);
-
 					if("success" in response){
 						//Adds light id to group
-						this.lights.push(light);
+						this.lights = requestBody;
 						cb(true, log);
 					}
 					else{
@@ -845,7 +940,7 @@ function EzHue(){
 			//Prepares HTTP request
 			http.open('PUT', api.bridge.url + "/groups/" + this.id, true);
 			//Sends HTTP request
-			http.send();
+			http.send({"lights":requestBody});
 		}
 
 		//Removes a light from the group
@@ -961,7 +1056,7 @@ function EzHue(){
 			requestBody = tmp + "}";
 
 			http.onreadyactionchange = function(){
-				if(requestStatus()){
+				if(requestStatus(http)){
 					//Stores response object
 					response = JSON.parse(http.responseText);
 					if("success" in response){
