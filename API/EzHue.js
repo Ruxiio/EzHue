@@ -37,7 +37,7 @@ function EzHue(){
 	//Groups array
 	this.groups = [];
 
-	//Find and create bridge
+	//Find and create bridge  //Tested
 	this.createBridge = function(cbAlert, cbFail, cbSuccess){
 		//Bridge frame
 		var bridgeFrame = {
@@ -50,25 +50,32 @@ function EzHue(){
 
 		if(useLocal){
 			//Make sure a bridge was not provided
-			if(localstorage.bridge === "undefined" || localstorage.bridge == null){
-				findBridge(this);
+			if(localStorage.url === "undefined" || localStorage.url == null){
+				console.log("No locally stored url");
+				findBridge();
 			}
 			else{
 				http.onreadystatechange = function(){
 					if(requestStatus(http)){
+						//Stores respinse object
+						response = JSON.parse(http.responseText);
+						console.log(response);
 						//If a successful request was sent the bridge is valid and can be used
-						if("success" in response){
-							this.bridge = localstorage.bridge;
-							cbSuccess(this);
+						if("lights" in response){
+							console.log("url found and valid");
+							bridgeFrame.url = localStorage.url;
+							findBridgeName();
 						}
 						else{
-							//Abandon localstorage and find new bridge
+							//Abandon localStorage and find new bridge
+							console.log("url found but not valid");
 							findBridge();
 						}
 					}
 				}
+				console.log(localStorage.url);
 				//Prepares HTTP request
-				http.open('GET', localstorage.bridge.url, true);
+				http.open('GET', localStorage.url, true);
 				//Sends HTTP request
 				http.send();
 			}
@@ -151,42 +158,43 @@ function EzHue(){
 				//Sends HTTP request
 				http.send("{\"devicetype\":\"Rux Lights\"}");
 			}
-
-			function findBridgeName(){
-				console.log("finding bridge name");
-				http.onreadystatechange = function(){
-					if(requestStatus(http)){
-						//Stores response object
-						response = JSON.parse(http.responseText);
-						console.log(response.name);
-						//Stores bridge name
-						bridgeFrame.name = response.name;
-						//Stores bridge config data
-						bridgeFrame.config = response;
-						//Applies bridge frame to bridge object
-						initBridge();
-					}
-					else if(http.readyState == 4){
-						//Handle errors
-					}
-				}
-				//Prepares HTTP request
-				http.open("GET", bridgeFrame.url + "/config" , true);
-				//Sends HTTP request
-				http.send();
-			}
-
-			function initBridge(){
-				//Create bridge as an object of EzHue
-				api.bridge = new Bridge(bridgeFrame, api);
-				//If local storage is supported, store bridge data for later use
-				if(useLocal){
-					localstorage.bridge = api.bridge;
-				}
-				//Fires the success function
-				cbSuccess(api.bridge);
-			}
 		}
+
+		function findBridgeName(){
+			console.log("finding bridge name");
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					console.log(response.name);
+					//Stores bridge name
+					bridgeFrame.name = response.name;
+					//Stores bridge config data
+					bridgeFrame.config = response;
+					//Applies bridge frame to bridge object
+					initBridge();
+				}
+				else if(http.readyState == 4){
+					//Handle errors
+				}
+			}
+			//Prepares HTTP request
+			http.open("GET", bridgeFrame.url + "/config" , true);
+			//Sends HTTP request
+			http.send();
+		}
+
+		function initBridge(){
+			//Create bridge as an object of EzHue
+			api.bridge = new Bridge(bridgeFrame, api);
+			//If local storage is supported, store bridge data for later use
+			if(useLocal){
+				localStorage.url = api.bridge.url;
+			}
+			//Fires the success function
+			cbSuccess(api.bridge);
+		}
+
 	}
 
 	//Bridge object constructor
@@ -199,8 +207,8 @@ function EzHue(){
 		this.lastScan;
 		this.config;
 
-		//Finds all lights connected to bridge
-		this.findLights = function(cb){
+		//Finds all lights connected to bridge //Tested
+		this.getLights = function(cb){
 			//Resets current lights
 			api.lights = [];
 			http.onreadystatechange = function(){
@@ -409,7 +417,7 @@ function EzHue(){
 			http.send({"name":n});
 		}
 
-		//Gets the bridge config data
+		//Gets the bridge config data //Tested
 		this.getConfig = function(cb){
 			//Temp refrence to bridge
 			var _s = this;
@@ -473,24 +481,35 @@ function EzHue(){
 			}
 		}
 
-		//Removes all users from the whitelist excluding this user
+		//Removes all users from the whitelist excluding this user //Tested
 		this.resetWhitelist = function(cb){
 			//Stores successes and errors to send to the callback
 			var log = [];
 			var deletedUsers = [];
 			var userQueue = [];
+			var users = Object.keys(this.config.whitelist);
 			//Loops through all users
-			for(var i in this.config.whitelist){
+			for(var i in users){
 				//Checks if the current user is this user
-				if(Object.keys(this.config.whitelist[i]) !=  this.username){
-					userQueue.push(Object.keys(this.config.whitelist[i]));
+				if(users[i] !=  this.username){
+					userQueue.push(users[i]);
 				}
-				if(i == this.config.whitelist.length){
+				if(i == users.length - 1){
 					beginQueue();
 				}
 			}
-
 			function beginQueue(){
+				//Clears queue interval
+				function clearInt(){
+					window.clearInterval(int);
+						api.bridge.getConfig(function(success, msg){
+							if(success){
+								console.log("Config successfuly updated");
+							}
+						});
+					cb(true, log);
+				}
+				setTimeout(function(){clearInt();}, 75 * (users.length - 1) + 50);
 				var _index = userQueue.length;
 				//Begins a queue that cycles through
 				var int = window.setInterval(function(){
@@ -499,48 +518,34 @@ function EzHue(){
 							//Stores response object
 							response = JSON.parse(http.responseText);
 							if("success" in response[0]){
-								log.push({"success":"User : " + Object.keys(this.config.whitelist[i]) + " deleted"});
+								log.push({"success":"User : " + users[i] + " deleted"});
 								//Adds username to the deleted user list
-								deletedUsers.push(this.config.whitelist[i]);
+								deletedUsers.push(users[i]);
+								console.log("User Deleted");
+							}
+							else{
+								console.log("error");
 							}
 						}
 						else if(http.readyState == 4){
-							log.push({"error":"HTTP error has occured when deleting user : " + Object.keys(this.config.whitelist[i])});
-						}
-
-						if(_index != 0){
-							_index--;
-						}
-						else{
-							clearInt();
+							log.push({"error":"HTTP error has occured when deleting user : " + users[i]});
 						}
 					}
+
+					if(_index != 0){
+						_index--;
+					}
+
 					//Prepares HTTP request
-					http.open('DELETE', this.url + "/config/whitelist/" + Object.keys(this.config.whitelist[i]), true);
+					http.open('DELETE', api.bridge.url + "/config/whitelist/" + users[_index], true);
 					//Sends HTTP request
 					http.send();
 				}, 75);
-
-				function clearInt(){
-					int.clearInterval();
-					//Cycles through the deleted users
-					for(var i in deletedUsers){
-						//Cycles through the whitelist data
-						for(var j in this.config.whitelist){
-							//Checks for a match in the deleted users and whitelist data
-							if(Object.keys(this.config.whitelist[j]) == deletedUsers[i]){
-								//Removes the user data
-								this.config.whitelist.splice(j, 1);
-							}
-						}
-					}
-					cb(true, log);
-				}
 			}
 		}
 
-		//Finds groups on the bridge
-		this.findGroups = function(cb){
+		//Finds groups on the bridge //Tested
+		this.getGroups = function(cb){
 
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
@@ -552,7 +557,7 @@ function EzHue(){
 						//Short hand for current group
 						var _curr = response[i];
 						//Adds group to group array
-						api.groups.push(new Group(_curr.name, Object.keys(_curr), _curr.type, _curr.lights));
+						api.groups.push(new Group(_curr.name, i.toString(), _curr.type, _curr.lights));
 					}
 					cb(true);
 				}
@@ -679,7 +684,6 @@ function EzHue(){
 			//Sends HTTP request
 			http.send();
 		}
-
 	}
 
 	//Light object constructor
@@ -814,17 +818,17 @@ function EzHue(){
 		this.lights = lights;
 		this.action;
 		this.state;
-
-		//Gets the groups current action data
+		var thisGroup = this;
+		//Gets the groups current action data //Tested
 		function getGroupActionData(){
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
 					//Stores response object
 					response = JSON.parse(http.responseText);
 
-					this.action = response.action;
-					this.state = response.state;
-					this.class = response.class;
+					thisGroup.action = response.action;
+					thisGroup.state = response.state;
+					thisGroup.class = response.class;
 				}
 				else if(http.readyState == 4){
 					//HTTP error
@@ -839,7 +843,7 @@ function EzHue(){
 
 		//Loads the groups data on creation if not provided
 		getGroupActionData();
-		
+
 		//Stores the time the group was last updated
 		this.lastUpdate = 0;
 
@@ -1093,17 +1097,17 @@ function EzHue(){
 			http.send(requestBody);
 		}
 
-		//Finds the state of one light in the group
+		//Finds the state of one light in the group //Tested
 		this.getAction = function(cb){
 
 			http.onreadystatechange = function(){
 				if(requestStatus(http)){
 					//Stores response object
 					response = JSON.parse(http.responseText);
-
-					this.action = response.action;
-					this.state = response.state;
-
+					console.log(response);
+					thisGroup.action = response.action;
+					thisGroup.state = response.state;
+					console.log(thisGroup);
 					cb(true);
 				}
 				else if(http.readyState == 4){
