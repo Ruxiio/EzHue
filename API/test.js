@@ -40,7 +40,7 @@ function getGroups(){
 	hueApi.bridge.getGroups(function(success, msg){
 		if(success){
 			var groupTxt = document.getElementById("group-txt");
-			groupTxt.innerHTML = JSON.stringify(hueApi.groups, null, '\t');
+			groupTxt.innerHTML = JSON.stringify(hueApi.groups, null, '\n');
 			groupData.innerHTML = "<button onclick='getGroupData()'>Get Action for " + hueApi.groups[0].name + "</button>";
 		}
 		else{
@@ -52,7 +52,7 @@ function getGroups(){
 function getGroupData(){
 	hueApi.groups[0].getAction(function(success, msg){
 		if(success){
-			groupData.innerHTML += "\n" + hueApi.groups[0].action;
+			groupData.innerHTML += "\n" + JSON.stringify(hueApi.groups[0], null, '\t');
 		}
 		else{
 			console.log(msg);

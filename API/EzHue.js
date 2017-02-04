@@ -2,7 +2,8 @@ function EzHue(){
 	//HTTP variables
 	var http = new XMLHttpRequest();
 	var response;
-	var useLocal = (typeof(Storage) !== "undefined");
+	var localEnabled = (typeof(Storage) !== "undefined");
+	var useLocal = localEnabled;
 
 	this.groupClasses = {
 		livingroom:"Living room",
@@ -37,8 +38,8 @@ function EzHue(){
 	//Groups array
 	this.groups = [];
 
-	//Find and create bridge  //Tested
-	this.createBridge = function(cbAlert, cbFail, cbSuccess){
+	//Find and create new bridge  //Tested
+	this.createBridge = function(alert, cb){
 		//Bridge frame
 		var bridgeFrame = {
 			ip:"",
@@ -48,42 +49,8 @@ function EzHue(){
 			config:{}
 		}
 
-		if(useLocal){
-			//Make sure a bridge was not provided
-			if(localStorage.url === "undefined" || localStorage.url == null){
-				console.log("No locally stored url");
-				findBridge();
-			}
-			else{
-				http.onreadystatechange = function(){
-					if(requestStatus(http)){
-						//Stores respinse object
-						response = JSON.parse(http.responseText);
-						console.log(response);
-						//If a successful request was sent the bridge is valid and can be used
-						if("lights" in response){
-							console.log("url found and valid");
-							bridgeFrame.url = localStorage.url;
-							findBridgeName();
-						}
-						else{
-							//Abandon localStorage and find new bridge
-							console.log("url found but not valid");
-							findBridge();
-						}
-					}
-				}
-				console.log(localStorage.url);
-				//Prepares HTTP request
-				http.open('GET', localStorage.url, true);
-				//Sends HTTP request
-				http.send();
-			}
-		}
-		else{
-			findBridge();
-		}
-
+		findBridge();
+	
 		//Find bridge with HUE nupnp
 		function findBridge(){
 			http.onreadystatechange = function(){
@@ -124,13 +91,13 @@ function EzHue(){
 						switch(response[0].error.type){
 							//If the link button was not pressed
 							case 101:
-								//Wait 10 seconds to resend request
+								//Wait 15 seconds to resend request
 								if(isFirst){
-									window.setTimeout(function(){request();}, 10000);
+									window.setTimeout(function(){request();}, 15000);
 									isFirst = false;
 								}
 								else{
-									cbFail();
+									cb(false, "Link button not pressed in time");
 								}
 								break;
 						}
@@ -152,7 +119,7 @@ function EzHue(){
 
 			//Post request function for multiple calls
 			function request(){
-				cbAlert();
+				alert(bridgeFrame.ip);
 				//Prepares HTTP request
 				http.open('POST', url, true);
 				//Sends HTTP request
@@ -188,13 +155,132 @@ function EzHue(){
 			//Create bridge as an object of EzHue
 			api.bridge = new Bridge(bridgeFrame, api);
 			//If local storage is supported, store bridge data for later use
-			if(useLocal){
+			if(localEnabled){
 				localStorage.url = api.bridge.url;
+				localStorage.ip = api.bridge.ip;
+				localStorage.username = api.bridge.username;
 			}
 			//Fires the success function
-			cbSuccess(api.bridge);
+			cb(true);
+		}
+	}
+
+	//Find locally stored bridge //Tested
+	this.findExistingBridge = function(cb){
+		//Bridge frame
+		var bridgeFrame = {
+			ip:"",
+			url:"",
+			username:"",
+			name:"",
+			config:{}
+		}
+		if(localEnabled){
+			if(localStorage.url !== "undefined"){
+				http.onreadystatechange = function(){
+					if(requestStatus(http)){
+						//Stores respinse object
+						response = JSON.parse(http.responseText);
+						console.log(response);
+						//If a successful request was sent the bridge is valid and can be used
+						if("lights" in response){
+							console.log("url found and valid");
+							var tmpUrl = localStorage.url;
+							//If the username was undefined, pull from url
+							if(localStorage.username === "undefined"){
+								var _username = "";
+								//Decrement from end of url untill hitting a "/"
+								for(var i = tmpUrl.length; i > 0; i--){
+									if(tmpUrl[i] != "/"){
+										//Add character to string
+										_username += tmpUrl[i];
+									}
+									else{
+										//Break the loop when / is found
+										break;
+									}
+								}
+								//Reverse username string and store it
+								localStorage.username = _username.split("").reverse().join("");
+							}
+							//If the ip was undefined, pull from url
+							if(localStorage.ip === "undefined"){
+								var _ip = "";
+								//Loop through url after http:// and before next / to extract ip
+								for(var i = 7; i < tmpUrl.length; i++)
+								{
+									if(tmpUrl[i] != "/"){
+										_ip += tmpUrl[i];
+									}
+									else{
+										//Break the loop because / was found
+										break;
+									}
+								}
+								//Store extracted ip
+								localStorage.ip = _ip;
+							}
+							bridgeFrame.ip = localStorage.ip;
+							bridgeFrame.url = localStorage.url;
+							bridgeFrame.username = localStorage.username;
+							findBridgeName();
+						}
+						else{
+							//Abandon localStorage and find new bridge
+							console.log("url found but not valid");
+							cb(false);
+						}
+					}
+				}
+				//Prepares HTTP request
+				http.open('GET', localStorage.url, true);
+				//Handles possible timeout due to IP change
+				http.timeout = 5000;
+				http.ontimeout = function(){cb(false, "HTTP connection timed out!");useLocal = false;}
+				//Sends HTTP request
+				http.send();
+			}
+		}
+		else{
+			cb(false, "Local storage not enabled in this browser");
 		}
 
+		function findBridgeName(){
+			console.log("finding bridge name");
+			http.onreadystatechange = function(){
+				if(requestStatus(http)){
+					//Stores response object
+					response = JSON.parse(http.responseText);
+					console.log(response.name);
+					//Stores bridge name
+					bridgeFrame.name = response.name;
+					//Stores bridge config data
+					bridgeFrame.config = response;
+					//Applies bridge frame to bridge object
+					initBridge();
+				}
+				else if(http.readyState == 4){
+					//Handle errors
+				}
+			}
+			//Prepares HTTP request
+			http.open("GET", bridgeFrame.url + "/config" , true);
+			//Sends HTTP request
+			http.send();
+		}
+
+		function initBridge(){
+			//Create bridge as an object of EzHue
+			api.bridge = new Bridge(bridgeFrame, api);
+			//If local storage is supported, store bridge data for later use
+			if(useLocal){
+				localStorage.url = api.bridge.url;
+				localStorage.ip = api.bridge.ip;
+				localStorage.username = api.bridge.username;
+			}
+			//Fires the success function
+			cb(true);
+		}
 	}
 
 	//Bridge object constructor
@@ -378,6 +464,7 @@ function EzHue(){
 
 		//Renames the bridge
 		this.rename = function(n, cb){
+			console.log("renaming bridge");
 			//Temp reference to bridge
 			var _s = this;
 			//Checks if the new name is a valid string
@@ -392,16 +479,16 @@ function EzHue(){
 					//Stores response object
 					response = JSON.parse(http.responseText);
 					//Looks for success of error objects
-					if("success" in response)
+					if("success" in response[0])
 					{
 						//Sets bridge name in internal memory
-						_s.name = response.success[0];
+						_s.name = n;
 						//Runs successful callback
-						cb(true, "Bridge name successfuly changed to : " + response.success[0]);
+						cb(true, "Bridge name successfuly changed to : " + n);
 					}
-					else if("error" in response){
+					else if("error" in response[0]){
 						//Fires error callback with response data
-						cb(false, response);
+						cb(false, response[0]);
 					}
 				}
 				//HTTP request finished but not successful
@@ -414,7 +501,7 @@ function EzHue(){
 			//Prepares HTTP request
 			http.open("PUT", this.url + "/config", true);
 			//Sends HTTP request
-			http.send({"name":n});
+			http.send(JSON.stringify({"name":n}));
 		}
 
 		//Gets the bridge config data //Tested
@@ -524,7 +611,7 @@ function EzHue(){
 								console.log("User Deleted");
 							}
 							else{
-								console.log("error");
+								console.log("error - " + response);
 							}
 						}
 						else if(http.readyState == 4){
@@ -805,7 +892,7 @@ function EzHue(){
 			//Prepare HTTP request
 			http.open('PUT', api.bridge.url + "/lights/" + this.index, true);
 			//Send HTTP request
-			http.send({"name":name});
+			http.send(JSON.stringify({"name":name}));
 		}
 	}
 
@@ -882,7 +969,7 @@ function EzHue(){
 			//Prepare HTTP request
 			http.open('PUT', api.bridge.url + "/groups/" + this.id, true);
 			//Send HTTP request
-			http.send({"name":name});
+			http.send(JSON.stringify({"name":name}));
 		}
 
 		//Adds a light to the group

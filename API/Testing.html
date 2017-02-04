@@ -26,6 +26,13 @@
 <hr />
 <h3>Whitelist</h3>
 <p id="whitelist"></p>
+<br />
+<button onclick="reverse(this);">Hello</button>
+<script type="text/javascript">
+	function reverse(ele){
+		ele.innerHTML = ele.innerHTML.split("").reverse().join("");
+	}
+</script>
 <script type="text/javascript" src="EzHue.js"></script>
 <script type="text/javascript" src="test.js"></script>
 </body>
